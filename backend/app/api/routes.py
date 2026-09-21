@@ -103,4 +103,4 @@ def share_app(app_id: str, db: Session = Depends(get_db)):
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
     base = os.getenv("PUBLIC_APP_URL", "http://localhost:5173").rstrip("/")
-    return {"url": f"{base}/app/{app.slug}"}
+    return {"url": f"{base}/run/{app.slug}"}
