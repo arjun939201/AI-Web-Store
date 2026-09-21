@@ -13,6 +13,7 @@ name, description, category, features, pages, icon.
 Do not return markdown. Do not generate executable code.
 Keep the application practical, concise, and internally consistent.
 features and pages must be arrays of short strings.
+icon must be a single emoji or short display symbol (for example: 📚, 💰, ✓, ✦). Never use a filename, file path, URL, or image asset name.
 """
 
 # Groq model availability changes over time. Keep a small ordered fallback list
