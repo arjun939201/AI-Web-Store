@@ -24,6 +24,19 @@ class AppSpec(BaseModel):
     pages: list[str] = Field(default_factory=list, max_length=30)
     icon: str = Field(default="✦", min_length=1, max_length=16)
 
+    @field_validator("icon", mode="before")
+    @classmethod
+    def normalize_icon(cls, value: object) -> str:
+        # AI output is untrusted. Icons are display symbols, not asset paths,
+        # URLs, or executable content. Fall back safely when a provider returns
+        # a filename such as "attendance_icon.png".
+        if not isinstance(value, str):
+            return "✦"
+        value = value.strip()
+        if not value or len(value) > 16 or any(char in value for char in "/\\") or "." in value:
+            return "✦"
+        return value
+
 
 class AppOut(AppSpec):
     model_config = ConfigDict(from_attributes=True)
