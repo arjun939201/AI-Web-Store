@@ -1,13 +1,13 @@
 # AI Store — AI-Powered Web App Store
 
-AI Store is an AI-first web app marketplace. Users describe what they want to build, the backend asks Grok/xAI for a structured application specification, validates it, stores it in PostgreSQL, and returns a shareable application URL.
+AI Store is an AI-first web app marketplace. Users describe what they want to build, the backend asks the configured AI provider for a validated structured application specification, validates it, stores it in PostgreSQL, and returns a shareable application URL.
 
 ## Production architecture
 
 - **Frontend:** React + Vite → Render Static Site
 - **Backend:** FastAPI + Pydantic → Render Web Service
 - **Database:** PostgreSQL → Render managed database
-- **AI:** xAI/Grok through `XAI_API_KEY`
+- **AI:** Groq through `GROQ_API_KEY` (provider abstraction also supports Grok)
 - **Deployment:** `render.yaml`
 
 The AI generates structured specifications, not executable server-side code.
@@ -20,7 +20,7 @@ The AI generates structured specifications, not executable server-side code.
    - `ai-store-api`
    - `ai-store-web`
    - `ai-store-db`
-4. Enter the secret `XAI_API_KEY` when Render requests it.
+4. Enter the secret `GROQ_API_KEY` when Render requests it.
 5. After deployment, verify:
    - `https://ai-store-api.onrender.com/health`
    - `https://ai-store-web.onrender.com`
@@ -52,7 +52,7 @@ copy .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-Set `DATABASE_URL` and `XAI_API_KEY` in `.env`.
+Set `DATABASE_URL` and `GROQ_API_KEY` in `.env`.
 
 ### Frontend
 
@@ -85,10 +85,10 @@ Backend:
 
 ```
 DATABASE_URL=
-XAI_API_KEY=
-XAI_MODEL=grok-3-mini
-XAI_BASE_URL=https://api.x.ai/v1/chat/completions
-AI_PROVIDER=grok
+GROQ_API_KEY=
+GROQ_MODEL=openai/gpt-oss-20b
+GROQ_BASE_URL=https://api.groq.com/openai/v1/chat/completions
+AI_PROVIDER=groq
 CORS_ORIGINS=
 PUBLIC_APP_URL=
 ```
@@ -99,7 +99,7 @@ Frontend:
 VITE_API_URL=
 ```
 
-Never put `XAI_API_KEY` or database credentials in frontend variables.
+Never put `GROQ_API_KEY` or database credentials in frontend variables.
 
 ## Security
 
