@@ -6,11 +6,23 @@ const API=import.meta.env.VITE_API_URL||'http://localhost:8000';
 
 function Home({onResult}){
  const [q,setQ]=useState(''),[loading,setLoading]=useState(false),[error,setError]=useState('');
+ const [apps,setApps]=useState([]),[appsLoading,setAppsLoading]=useState(true);
+ useEffect(()=>{
+  let active=true;
+  fetch(API+'/api/apps')
+   .then(async r=>{if(!r.ok)throw Error('Unable to load created apps');return r.json()})
+   .then(data=>{if(active)setApps(Array.isArray(data)?data:[])})
+   .catch(e=>{if(active)setError(e.message)})
+   .finally(()=>{if(active)setAppsLoading(false)});
+  return ()=>{active=false};
+ },[]);
  async function submit(e){if(e)e.preventDefault();if(!q.trim()||loading)return;setLoading(true);setError('');
-  try{const r=await fetch(API+'/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q.trim()})});const d=await r.json();if(!r.ok)throw Error(d.detail||'Something went wrong');onResult(d.app)}
+  try{const r=await fetch(API+'/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q.trim()})});const d=await r.json();if(!r.ok)throw Error(d.detail||'Something went wrong');setApps(prev=>[d.app,...prev.filter(x=>x.slug!==d.app.slug)]);onResult(d.app)}
   catch(e){setError(e.message)}finally{setLoading(false)}
  }
- return <main className="home"><div className="hero"><form className="search" onSubmit={submit}><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="What do you want to build?" aria-label="What do you want to build?"/><button aria-label="Search" disabled={!q.trim()||loading}>{loading?<LoaderCircle className="spin"/>:<Search/>}</button></form><div className="brand">AI Store</div>{error&&<div className="error">{error}</div>}</div></main>
+ return <main className="home"><div className="hero"><form className="search" onSubmit={submit}><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="What do you want to build?" aria-label="What do you want to build?"/><button aria-label="Search" disabled={!q.trim()||loading}>{loading?<LoaderCircle className="spin"/>:<Search/>}</button></form><div className="brand">AI Store</div>{error&&<div className="error">{error}</div>}
+  {(appsLoading||apps.length>0)&&<section className="library" aria-label="Created apps"><div className="library-head"><h2>Created Apps</h2>{appsLoading&&<LoaderCircle className="spin"/>}</div>{!appsLoading&&<div className="app-list">{apps.map(app=><a className="app-tile" href={'/app/'+app.slug} key={app.slug}><span className="tile-icon">{app.icon}</span><span className="tile-copy"><strong>{app.name}</strong><small>{app.category}</small></span><ArrowUpRight/></a>)}</div>}</section>}
+  </div></main>
 }
 
 function AppView({app,onBack}){
