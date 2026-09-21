@@ -9,11 +9,11 @@
 
 /* Refined search-first homepage layout */
 .home{min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:0 24px 70px}
-.hero{width:min(760px,100%);text-align:center;transform:none;margin-top:clamp(110px,18vh,180px)}
+.hero{width:min(920px,100%);text-align:center;transform:none;margin-top:clamp(110px,18vh,180px)}
 .brand{display:block;width:max-content;max-width:100%;margin:0 auto;font-size:clamp(38px,5vw,52px);font-weight:700;letter-spacing:-2px;line-height:1.05}
 .brand-subtitle{margin:12px 0 28px;color:#77737f;font-size:14px;letter-spacing:-.1px}
-.search{height:62px;max-width:700px;margin:0 auto;padding:6px 8px 6px 22px}
-.search button{width:50px;height:50px}
+.search{height:74px;max-width:860px;margin:0 auto;padding:7px 9px 7px 26px}
+.search button{width:58px;height:58px}
 .library{width:100%;max-width:700px;margin:58px auto 0;padding-top:26px;border-top:1px solid #19181f;text-align:left}
 .library-head{margin-bottom:14px}
 .library-head h2{font-size:12px;letter-spacing:.1em}
@@ -26,7 +26,7 @@
  .hero{margin-top:80px}
  .brand{font-size:36px}
  .brand-subtitle{margin-top:10px;margin-bottom:22px}
- .search{height:58px;padding-left:18px}
- .search button{width:46px;height:46px}
+ .search{height:62px;padding-left:18px}
+ .search button{width:48px;height:48px}
  .library{margin-top:44px;padding-top:22px}
 }
