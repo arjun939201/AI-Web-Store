@@ -28,6 +28,8 @@ raw_origins = os.getenv(
     "http://localhost:5173,https://ai-store-web.onrender.com",
 )
 origins = [value.strip().rstrip("/") for value in raw_origins.split(",") if value.strip()]
+if "https://ai-store-web.onrender.com" not in origins:
+    origins.append("https://ai-store-web.onrender.com")
 allow_credentials = "*" not in origins
 
 app.add_middleware(
