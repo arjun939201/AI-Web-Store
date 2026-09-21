@@ -14,15 +14,19 @@ Do not return markdown. Do not generate executable code, HTML, CSS, JavaScript, 
 Keep the application practical, concise, and internally consistent.
 features and pages must be arrays of short strings.
 icon must be a single emoji or short display symbol.
-runtime must have: app_type, pages.
+runtime must have: app_type, pages, entities.
 app_type must be one of: general, productivity, finance, education, game, navigation, health, business, social, portfolio, utility.
 runtime.pages must be an array of page objects. Each page has name and components.
-Each component must use only one of these types: heading, text, button, input, textarea, select, checkbox, stat, list, table, card, chart, game_board.
-A component may include label, text, placeholder, data_key, action, and options. Keep component arrays small (maximum 10 per page).
+Each component must use only one of these types: heading, text, button, input, textarea, select, checkbox, stat, list, table, card, chart, game_board, data_form, data_table, data_summary.
+A component may include label, text, placeholder, data_key, action, options, entity, fields, aggregate, and limit. Keep component arrays small (maximum 10 per page).
+For data_form, set entity to an entity name. For data_table, set entity and optionally fields. For data_summary, set entity, aggregate (count, sum, or avg), and optionally data_key as the field to aggregate.
+runtime.entities must be an array of data entities. Each entity has name, fields, and optional seed records.
+Each field has key, label, type (text, number, boolean, date, or select), required, default, and optional options.
+Use stable simple field keys such as amount, category, description, date, name, status.
+For data apps, define the entities needed for real CRUD and use data_form + data_table + data_summary where appropriate.
 Use safe action names such as add_item, delete_item, toggle_item, start_game, pause_game, reset_game, save, search, or navigate.
 For game apps, use game_board plus score/start/pause/reset controls.
-For data apps, prefer stat, form inputs, list/table, and buttons.
-The runtime describes UI structure only; never put executable code in it.
+The runtime describes UI structure and data definitions only; never put executable code in it.
 """
 
 # Groq model availability changes over time. Keep a small ordered fallback list
