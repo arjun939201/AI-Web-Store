@@ -18,8 +18,31 @@ class SearchRequest(BaseModel):
 
 ComponentType = Literal[
     "heading", "text", "button", "input", "textarea", "select", "checkbox",
-    "stat", "list", "table", "card", "chart", "game_board"
+    "stat", "list", "table", "card", "chart", "game_board",
+    "data_form", "data_table", "data_summary"
 ]
+
+FieldType = Literal["text", "number", "boolean", "date", "select"]
+
+
+class RuntimeField(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(min_length=1, max_length=80)
+    label: str = Field(min_length=1, max_length=120)
+    type: FieldType = "text"
+    required: bool = False
+    default: Any = None
+    options: list[str] = Field(default_factory=list, max_length=20)
+
+
+class RuntimeEntity(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=80)
+    fields: list[RuntimeField] = Field(min_length=1, max_length=20)
+    seed: list[dict[str, Any]] = Field(default_factory=list, max_length=20)
+
 
 
 class AppComponent(BaseModel):
@@ -32,6 +55,10 @@ class AppComponent(BaseModel):
     data_key: str = Field(default="", max_length=120)
     action: str = Field(default="", max_length=120)
     options: list[str] = Field(default_factory=list, max_length=20)
+    entity: str = Field(default="", max_length=80)
+    fields: list[str] = Field(default_factory=list, max_length=20)
+    aggregate: Literal["count", "sum", "avg"] = "count"
+    limit: int = Field(default=50, ge=1, le=100)
 
 
 class RuntimePage(BaseModel):
@@ -49,6 +76,7 @@ class RuntimeSpec(BaseModel):
         "navigation", "health", "business", "social", "portfolio", "utility"
     ] = "general"
     pages: list[RuntimePage] = Field(default_factory=list, max_length=20)
+    entities: list[RuntimeEntity] = Field(default_factory=list, max_length=10)
 
 
 class AppSpec(BaseModel):
