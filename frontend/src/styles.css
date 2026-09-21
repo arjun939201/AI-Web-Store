@@ -12,7 +12,7 @@
 .hero{width:min(920px,100%);text-align:center;transform:none;margin-top:clamp(110px,18vh,180px)}
 .brand{display:block;width:max-content;max-width:100%;margin:0 auto;font-size:clamp(38px,5vw,52px);font-weight:700;letter-spacing:-2px;line-height:1.05}
 .brand-subtitle{margin:12px 0 28px;color:#77737f;font-size:14px;letter-spacing:-.1px}
-.search{height:74px;max-width:860px;margin:0 auto;padding:7px 9px 7px 26px}
+.search{height:74px;max-width:860px;margin:28px auto 0;padding:7px 9px 7px 26px}
 .search button{width:58px;height:58px}
 .library{width:100%;max-width:700px;margin:58px auto 0;padding-top:26px;border-top:1px solid #19181f;text-align:left}
 .library-head{margin-bottom:14px}
