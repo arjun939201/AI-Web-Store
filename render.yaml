@@ -8,7 +8,9 @@ services:
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: ai-store-db
+          property: connectionString
       - key: XAI_API_KEY
         sync: false
       - key: XAI_MODEL
@@ -16,6 +18,21 @@ services:
       - key: AI_PROVIDER
         value: grok
       - key: CORS_ORIGINS
-        sync: false
+        value: https://ai-store-web.onrender.com
       - key: PUBLIC_APP_URL
-        sync: false
+        value: https://ai-store-web.onrender.com
+
+  - type: web
+    name: ai-store-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://ai-store-api.onrender.com
+
+databases:
+  - name: ai-store-db
+    databaseName: ai_store
+    user: ai_store
