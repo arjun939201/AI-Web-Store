@@ -1,5 +1,13 @@
 import os
+
 from .grok import GrokProvider
+from .groq import GroqProvider
+
+
 def get_provider():
- if os.getenv("AI_PROVIDER","grok").lower()=="grok": return GrokProvider()
- raise ValueError("Unsupported AI_PROVIDER")
+    provider = os.getenv("AI_PROVIDER", "groq").lower().strip()
+    if provider == "groq":
+        return GroqProvider()
+    if provider == "grok":
+        return GrokProvider()
+    raise ValueError(f"Unsupported AI_PROVIDER: {provider}")
