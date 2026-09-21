@@ -52,7 +52,8 @@ function PublicApp({slug}){
 function Root(){
  const [app,setApp]=useState(null),path=location.pathname;
  if(app)return <AppView app={app} onBack={()=>setApp(null)}/>;
- if(path.startsWith('/run/'))return <AppRuntime slug={path.slice(5)}/>;\n if(path.startsWith('/app/'))return <PublicApp slug={path.slice(5)}/>;
+ if(path.startsWith('/run/'))return <AppRuntime slug={path.slice(5)}/>;
+ if(path.startsWith('/app/'))return <PublicApp slug={path.slice(5)}/>;
  return <Home onResult={setApp}/>;
 }
 createRoot(document.getElementById('root')).render(<Root/>);
