@@ -45,7 +45,7 @@ def _database_target():
 
 
 def init_db(retries=10, delay_seconds=3.0):
-    from .models import App, AppFeature, AppVersion, User
+    from .models import App, AppFeature, AppVersion, User, UserCredential
 
     for attempt in range(1, retries + 1):
         try:
