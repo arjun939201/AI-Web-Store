@@ -23,8 +23,11 @@ app = FastAPI(
     redoc_url="/redoc" if os.getenv("ENABLE_DOCS", "false").lower() == "true" else None,
 )
 
-raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173")
-origins = [value.strip() for value in raw_origins.split(",") if value.strip()]
+raw_origins = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:5173,https://ai-store-web.onrender.com",
+)
+origins = [value.strip().rstrip("/") for value in raw_origins.split(",") if value.strip()]
 allow_credentials = "*" not in origins
 
 app.add_middleware(
