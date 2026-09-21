@@ -9,7 +9,7 @@
 
 /* Refined search-first homepage layout */
 .home{height:100vh;overflow:hidden;display:flex;justify-content:center;align-items:flex-start;padding:0 24px 24px}
-.hero{width:min(920px,100%);text-align:center;transform:none;margin-top:clamp(110px,18vh,180px)}
+.hero{width:min(920px,100%);text-align:center;transform:none;margin-top:55px}
 .brand{display:block;width:max-content;max-width:100%;margin:0 auto;font-size:clamp(38px,5vw,52px);font-weight:700;letter-spacing:-2px;line-height:1.05}
 .brand-subtitle{margin:12px 0 28px;color:#77737f;font-size:14px;letter-spacing:-.1px}
 .search{height:74px;max-width:860px;margin:55px auto 0;padding:7px 9px 7px 26px}
@@ -19,11 +19,11 @@
 .library-head h2{font-size:12px;letter-spacing:.1em}
 .app-search{height:48px;margin-bottom:12px;background:#0d0c11;border-color:#24222b}
 .app-search input{font-size:14px}
-.app-list{gap:7px;max-height:calc(100vh - 470px);overflow-y:auto;padding-right:4px;scrollbar-width:thin}
+.app-list{gap:7px;max-height:calc(100vh - 520px);overflow-y:auto;padding-right:4px;scrollbar-width:thin}
 .app-tile{padding:12px 14px;border-radius:13px}
 @media(max-width:650px){
  .home{padding:0 16px 50px}
- .hero{margin-top:80px}
+ .hero{margin-top:40px}
  .brand{font-size:36px}
  .brand-subtitle{margin-top:10px;margin-bottom:22px}
  .search{height:62px;padding-left:18px}
