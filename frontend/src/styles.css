@@ -19,7 +19,7 @@
 .library-head h2{font-size:12px;letter-spacing:.1em}
 .app-search{height:48px;margin-bottom:12px;background:#0d0c11;border-color:#24222b}
 .app-search input{font-size:14px}
-.app-list{gap:7px;max-height:calc(100vh - 520px);overflow-y:auto;padding-right:4px;scrollbar-width:none;-ms-overflow-style:none}
+.app-list{gap:7px;max-height:calc(100vh - 520px);overflow-y:auto;padding-right:4px;scrollbar-width:thin;scrollbar-color:#7460ff transparent;-ms-overflow-style:auto}
 .app-tile{padding:12px 14px;border-radius:13px}
 @media(max-width:650px){
  .home{padding:0 16px 50px}
@@ -33,4 +33,4 @@
 }
 
 .data-form{display:grid;gap:14px;padding:18px;border:1px solid #292631;border-radius:14px;background:#111017}.data-form-actions{display:flex;align-items:center;gap:12px}.data-form-message{font-size:12px;color:#7edbb0}.data-table-wrap{overflow:auto;border:1px solid #292631;border-radius:14px;background:#111017}.data-table{width:100%;border-collapse:collapse;min-width:520px}.data-table th,.data-table td{padding:12px 14px;border-bottom:1px solid #25222c;text-align:left;font-size:13px}.data-table th{color:#85818d;font-weight:600;background:#15131a}.data-table td{color:#d5d2dc}.data-table tbody tr:last-child td{border-bottom:0}.data-delete{border:1px solid #3a2830;background:#1b1419;color:#e7a6b4;border-radius:8px;padding:6px 9px;font:500 11px Inter;cursor:pointer}.data-delete:hover{background:#24171e}.runtime-field input[type="checkbox"]{width:auto;justify-self:start;accent-color:#8d7cff}.data-row-actions{white-space:nowrap}.data-edit{border:1px solid #302c3a;background:#17151d;color:#d8d5de;border-radius:8px;padding:6px 9px;font:500 11px Inter;cursor:pointer;margin-right:5px}.data-edit:hover{background:#211e2a}.data-edit.save{color:#9fe1bf;border-color:#294538}.data-edit-input{max-width:150px;border:1px solid #393442;border-radius:7px;background:#15131a;color:#eee;padding:6px 7px;font:12px Inter;outline:0}.data-edit-input:focus{border-color:#7460ff}
-.app-list::-webkit-scrollbar{width:0;height:0}
+.app-list::-webkit-scrollbar{width:6px;height:6px}.app-list::-webkit-scrollbar-track{background:transparent}.app-list::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#8d7cff,#5e52d9);border-radius:999px}.app-list::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#a99dff,#7460ff)}
