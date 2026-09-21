@@ -1,9 +1,12 @@
 import json
+import logging
 import os
 
 import httpx
 from .base import AIProvider
 from ..schemas import AppSpec
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """Return ONLY a valid JSON object with exactly these keys:
 name, description, category, features, pages, icon.
@@ -37,15 +40,37 @@ class GrokProvider(AIProvider):
         }
 
         with httpx.Client(timeout=self.timeout) as client:
-            response = client.post(
-                self.url,
-                headers={
-                    "Authorization": f"Bearer {self.key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-            response.raise_for_status()
+            try:
+                response = client.post(
+                    self.url,
+                    headers={
+                        "Authorization": f"Bearer {self.key}",
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    },
+                    json=payload,
+                )
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                # Never log the Authorization header or the API key.
+                detail = response.text.strip().replace("\n", " ")[:1000]
+                logger.error(
+                    "xAI request rejected status=%s model=%s detail=%s",
+                    response.status_code,
+                    self.model,
+                    detail or "<empty response>",
+                )
+                raise RuntimeError(
+                    f"xAI request failed with HTTP {response.status_code}."
+                ) from exc
+            except httpx.HTTPError as exc:
+                logger.error(
+                    "xAI request failed model=%s error=%s",
+                    self.model,
+                    str(exc),
+                )
+                raise RuntimeError("xAI request failed.") from exc
+
             data = response.json()
 
         try:
@@ -60,4 +85,6 @@ class GrokProvider(AIProvider):
             parsed = json.loads(content)
             return AppSpec.model_validate(parsed)
         except (json.JSONDecodeError, TypeError, ValueError) as exc:
-            raise RuntimeError("AI provider returned an invalid application specification.") from exc
+            raise RuntimeError(
+                "AI provider returned an invalid application specification."
+            ) from exc
