@@ -43,6 +43,26 @@ def test_app_spec_validation():
     assert spec.features == ["Add expenses"]
 
 
+def test_app_spec_normalizes_invalid_ai_icon():
+    spec = AppSpec(
+        name="Attendance",
+        description="Track attendance",
+        category="Education",
+        icon="attendance_icon.png",
+    )
+    assert spec.icon == "✦"
+
+
+def test_app_spec_preserves_display_icon():
+    spec = AppSpec(
+        name="Attendance",
+        description="Track attendance",
+        category="Education",
+        icon="📚",
+    )
+    assert spec.icon == "📚"
+
+
 def test_slugify_produces_safe_slug():
     assert slugify("My Expense Tracker!") == "my-expense-tracker"
 
