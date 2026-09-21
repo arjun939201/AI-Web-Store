@@ -3,10 +3,12 @@ services:
     name: ai-store-api
     runtime: python
     rootDir: .
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend
+    buildCommand: python -m pip install --upgrade pip && python -m pip install -r backend/requirements.txt
+    startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend
     healthCheckPath: /health
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
       - key: DATABASE_URL
         fromDatabase:
           name: ai-store-db
@@ -15,8 +17,16 @@ services:
         sync: false
       - key: XAI_MODEL
         value: grok-3-mini
+      - key: XAI_BASE_URL
+        value: https://api.x.ai/v1/chat/completions
       - key: AI_PROVIDER
         value: grok
+      - key: AI_TIMEOUT_SECONDS
+        value: "45"
+      - key: ENABLE_DOCS
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
       - key: CORS_ORIGINS
         value: https://ai-store-web.onrender.com
       - key: PUBLIC_APP_URL
