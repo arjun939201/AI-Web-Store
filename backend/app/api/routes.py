@@ -2,6 +2,7 @@ import logging
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
@@ -33,14 +34,10 @@ def to_app_out(app: App) -> AppOut:
     )
 
 
-@router.post("/search", response_model=SearchResponse)
-def search(payload: SearchRequest, request: Request, db: Session = Depends(get_db)):
+def generate_and_store(payload: SearchRequest, request: Request, db: Session):
     try:
         spec = get_provider().generate_app_spec(payload.query)
-        app = create_app(db, spec)
-        return {"app": to_app_out(app)}
     except Exception:
-        db.rollback()
         logger.exception(
             "AI app generation failed request_id=%s",
             getattr(request.state, "request_id", "unknown"),
@@ -50,12 +47,31 @@ def search(payload: SearchRequest, request: Request, db: Session = Depends(get_d
             detail="AI generation is temporarily unavailable. Please try again.",
         )
 
+    try:
+        app = create_app(db, spec)
+        return {"app": to_app_out(app)}
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception(
+            "AI app persistence failed request_id=%s",
+            getattr(request.state, "request_id", "unknown"),
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Application storage is temporarily unavailable. Please try again.",
+        )
+
+
+@router.post("/search", response_model=SearchResponse)
+def search(payload: SearchRequest, request: Request, db: Session = Depends(get_db)):
+    return generate_and_store(payload, request, db)
+
 
 @router.post("/apps/generate", response_model=SearchResponse)
 def generate(
     payload: SearchRequest, request: Request, db: Session = Depends(get_db)
 ):
-    return search(payload, request, db)
+    return generate_and_store(payload, request, db)
 
 
 @router.get("/apps", response_model=list[AppOut])
