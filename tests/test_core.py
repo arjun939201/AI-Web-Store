@@ -1,7 +1,7 @@
 import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_ai_store.db")
-os.environ.setdefault("CORS_ORIGINS", "http://testserver")
+os.environ.setdefault("CORS_ORIGINS", "http://testserver,https://ai-store-web.onrender.com")
 os.environ.setdefault("AUTH_SECRET", "test-secret-that-is-at-least-32-characters-long")
 
 from fastapi.testclient import TestClient
