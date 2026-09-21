@@ -10,14 +10,17 @@ from fastapi.responses import JSONResponse
 from .api.routes import router
 from .database import init_db
 
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 logger = logging.getLogger("ai_store")
 
 app = FastAPI(
     title="AI Store API",
     version="1.1.0",
-    docs_url="/docs" if os.getenv("ENABLE_DOCS", "true").lower() == "true" else None,
-    redoc_url="/redoc" if os.getenv("ENABLE_DOCS", "true").lower() == "true" else None,
+    docs_url="/docs" if os.getenv("ENABLE_DOCS", "false").lower() == "true" else None,
+    redoc_url="/redoc" if os.getenv("ENABLE_DOCS", "false").lower() == "true" else None,
 )
 
 raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173")
@@ -44,7 +47,19 @@ async def request_context(request: Request, call_next):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["Cache-Control"] = "no-store"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "connect-src 'self' https:; "
+            "img-src 'self' data: https:; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "script-src 'self'; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
         return response
     finally:
         elapsed_ms = (time.perf_counter() - started) * 1000
