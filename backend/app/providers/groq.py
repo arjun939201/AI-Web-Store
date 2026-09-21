@@ -8,12 +8,21 @@ from ..schemas import AppSpec
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """Return ONLY a valid JSON object with exactly these keys:
-name, description, category, features, pages, icon.
-Do not return markdown. Do not generate executable code.
+SYSTEM_PROMPT = """Return ONLY a valid JSON object with exactly these top-level keys:
+name, description, category, features, pages, icon, runtime.
+Do not return markdown. Do not generate executable code, HTML, CSS, JavaScript, Python, URLs, file paths, or asset names.
 Keep the application practical, concise, and internally consistent.
 features and pages must be arrays of short strings.
-icon must be a single emoji or short display symbol (for example: 📚, 💰, ✓, ✦). Never use a filename, file path, URL, or image asset name.
+icon must be a single emoji or short display symbol.
+runtime must have: app_type, pages.
+app_type must be one of: general, productivity, finance, education, game, navigation, health, business, social, portfolio, utility.
+runtime.pages must be an array of page objects. Each page has name and components.
+Each component must use only one of these types: heading, text, button, input, textarea, select, checkbox, stat, list, table, card, chart, game_board.
+A component may include label, text, placeholder, data_key, action, and options. Keep component arrays small (maximum 10 per page).
+Use safe action names such as add_item, delete_item, toggle_item, start_game, pause_game, reset_game, save, search, or navigate.
+For game apps, use game_board plus score/start/pause/reset controls.
+For data apps, prefer stat, form inputs, list/table, and buttons.
+The runtime describes UI structure only; never put executable code in it.
 """
 
 # Groq model availability changes over time. Keep a small ordered fallback list
