@@ -19,7 +19,16 @@ def test_health_endpoint():
 
 
 def test_search_request_validation():
-    assert SearchRequest(query="expense tracker").query == "expense tracker"
+    assert SearchRequest(query="  expense tracker  ").query == "expense tracker"
+
+
+def test_search_request_rejects_whitespace_only():
+    try:
+        SearchRequest(query="   ")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected whitespace-only query to fail")
 
 
 def test_app_spec_validation():
