@@ -23,6 +23,8 @@ ComponentType = Literal[
 
 
 class AppComponent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     type: ComponentType
     label: str = Field(default="", max_length=120)
     text: str = Field(default="", max_length=500)
@@ -33,11 +35,15 @@ class AppComponent(BaseModel):
 
 
 class RuntimePage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(min_length=1, max_length=100)
     components: list[AppComponent] = Field(default_factory=list, max_length=20)
 
 
 class RuntimeSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     app_type: Literal[
         "general", "productivity", "finance", "education", "game",
         "navigation", "health", "business", "social", "portfolio", "utility"
@@ -46,6 +52,8 @@ class RuntimeSpec(BaseModel):
 
 
 class AppSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(min_length=1, max_length=180)
     description: str = Field(min_length=1, max_length=2000)
     category: str = Field(min_length=1, max_length=100)
