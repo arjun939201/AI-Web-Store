@@ -6,7 +6,7 @@ os.environ.setdefault("CORS_ORIGINS", "http://testserver")
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
-from backend.app.providers.grok import GrokProvider
+from backend.app.providers.groq import GroqProvider
 from backend.app.schemas import AppSpec, SearchRequest
 from backend.app.services.apps import slugify
 
@@ -47,12 +47,12 @@ def test_slugify_produces_safe_slug():
     assert slugify("My Expense Tracker!") == "my-expense-tracker"
 
 
-def test_grok_requires_api_key(monkeypatch):
-    monkeypatch.delenv("XAI_API_KEY", raising=False)
-    provider = GrokProvider()
+def test_groq_requires_api_key(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    provider = GroqProvider()
     try:
         provider.generate_app_spec("Build an expense tracker")
     except RuntimeError as exc:
-        assert str(exc) == "XAI_API_KEY is not configured."
+        assert str(exc) == "GROQ_API_KEY is not configured."
     else:
         raise AssertionError("Expected missing API key to fail")
