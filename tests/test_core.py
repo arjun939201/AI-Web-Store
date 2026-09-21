@@ -193,3 +193,17 @@ def test_invalid_auth_token_is_rejected():
     with TestClient(app) as client:
         response = client.get("/api/auth/me", headers={"Authorization": "Bearer invalid.token.value"})
     assert response.status_code == 401
+
+
+def test_production_frontend_cors_is_allowed():
+    with TestClient(app) as client:
+        response = client.options(
+            "/api/auth/register",
+            headers={
+                "Origin": "https://ai-store-web.onrender.com",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "https://ai-store-web.onrender.com"
