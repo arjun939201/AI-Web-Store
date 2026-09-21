@@ -117,3 +117,33 @@ class SearchResponse(BaseModel):
 
 class ShareResponse(BaseModel):
     url: str
+
+
+class AuthRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+    password: str = Field(min_length=8, max_length=128)
+    name: str = Field(default="", max_length=120)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        value = value.strip().lower()
+        if "@" not in value or value.startswith("@") or value.endswith("@"):
+            raise ValueError("Enter a valid email address.")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        return value.strip()
+
+
+class UserOut(BaseModel):
+    id: int
+    email: str
+    name: str | None = None
+
+
+class AuthResponse(BaseModel):
+    token: str
+    user: UserOut

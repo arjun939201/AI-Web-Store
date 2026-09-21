@@ -4,7 +4,7 @@ import {Search,ArrowUpRight,Share2,ChevronLeft,LoaderCircle,Sparkles} from 'luci
 import './styles.css';
 const API=import.meta.env.VITE_API_URL||'http://localhost:8000';
 
-function Home({onResult}){
+function Home({onResult,token,user,onAuth,onLogout}){
  const [q,setQ]=useState(''),[loading,setLoading]=useState(false),[error,setError]=useState('');
  const [apps,setApps]=useState([]),[appsLoading,setAppsLoading]=useState(true),[appSearch,setAppSearch]=useState('');
  useEffect(()=>{
@@ -16,13 +16,19 @@ function Home({onResult}){
    .finally(()=>{if(active)setAppsLoading(false)});
   return ()=>{active=false};
  },[]);
- async function submit(e){if(e)e.preventDefault();if(!q.trim()||loading)return;setLoading(true);setError('');
-  try{const r=await fetch(API+'/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q.trim()})});const d=await r.json();if(!r.ok)throw Error(d.detail||'Something went wrong');setApps(prev=>[d.app,...prev.filter(x=>x.slug!==d.app.slug)]);onResult(d.app)}
-  catch(e){setError(e.message)}finally{setLoading(false)}
+ async function submit(e){if(e)e.preventDefault();if(!q.trim()||loading)return;if(!token){onAuth();return;}setLoading(true);setError('');
+  try{const r=await fetch(API+'/api/search',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({query:q.trim()})});const d=await r.json();if(!r.ok)throw Error(d.detail||'Something went wrong');setApps(prev=>[d.app,...prev.filter(x=>x.slug!==d.app.slug)]);onResult(d.app)}
+  catch(e){if(e.message.includes('Authentication')||e.message.includes('Invalid or expired'))onLogout();setError(e.message)}finally{setLoading(false)}
  }
- return <main className="home"><div className="hero"><div className="brand">AI Store</div><form className="search" onSubmit={submit}><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="What do you want to build?" aria-label="What do you want to build?"/><button aria-label="Search" disabled={!q.trim()||loading}>{loading?<LoaderCircle className="spin"/>:<Search/>}</button></form>{error&&<div className="error">{error}</div>}
+ return <main className="home"><div className="account-bar">{user?<><span>{user.name||user.email}</span><button onClick={onLogout}>Sign out</button></>:<button onClick={onAuth}>Sign in</button>}</div><div className="hero"><div className="brand">AI Store</div><form className="search" onSubmit={submit}><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="What do you want to build?" aria-label="What do you want to build?"/><button aria-label="Search" disabled={!q.trim()||loading}>{loading?<LoaderCircle className="spin"/>:<Search/>}</button></form>{error&&<div className="error">{error}</div>}
   {(appsLoading||apps.length>0)&&<section className="library" aria-label="Created apps"><div className="library-head"><h2>Created Apps</h2>{appsLoading&&<LoaderCircle className="spin"/>}</div>{!appsLoading&&<><div className="app-search"><Search/><input value={appSearch} onChange={e=>setAppSearch(e.target.value)} placeholder="Search created apps..." aria-label="Search created apps"/></div><div className="app-list">{apps.filter(app=>{const q=appSearch.trim().toLowerCase();return !q||app.name.toLowerCase().includes(q)}).map(app=><a className="app-tile" href={'/app/'+app.slug} key={app.slug}><span className="tile-icon">{app.icon}</span><span className="tile-copy"><strong>{app.name}</strong><small>{app.category}</small></span><ArrowUpRight/></a>)}</div>{apps.length>0&&apps.filter(app=>{const q=appSearch.trim().toLowerCase();return !q||app.name.toLowerCase().includes(q)}).length===0&&<div className="app-search-empty">No created apps match “{appSearch}”.</div>}</>}</section>}
   </div></main>
+}
+
+function AuthModal({onClose,onAuthenticated}){
+ const [mode,setMode]=useState('login'),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[name,setName]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(false);
+ async function submit(e){e.preventDefault();if(loading)return;setLoading(true);setError('');try{const endpoint=mode==='login'?'/api/auth/login':'/api/auth/register';const r=await fetch(API+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,name})});const data=await r.json();if(!r.ok)throw Error(data.detail||'Authentication failed');onAuthenticated(data)}catch(err){setError(err.message)}finally{setLoading(false)}}
+ return <div className="auth-overlay" role="dialog" aria-modal="true"><div className="auth-card"><button className="auth-close" onClick={onClose} aria-label="Close">×</button><div className="auth-brand">AI Store</div><h2>{mode==='login'?'Welcome back':'Create your account'}</h2><p>{mode==='login'?'Sign in to create and save your AI apps.':'Create an account to own your generated apps.'}</p><form onSubmit={submit}>{mode==='register'&&<input value={name} onChange={e=>setName(e.target.value)} placeholder="Name" maxLength="120" autoComplete="name"/>}<input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" autoComplete="email" required/><input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password (8+ characters)" type="password" minLength="8" maxLength="128" autoComplete={mode==='login'?'current-password':'new-password'} required/>{error&&<div className="auth-error">{error}</div>}<button className="primary auth-submit" disabled={loading}>{loading?<LoaderCircle className="spin"/>:mode==='login'?'Sign in':'Create account'}</button></form><button className="auth-switch" onClick={()=>{setMode(mode==='login'?'register':'login');setError('')}}>{mode==='login'?'Create an account':'Already have an account? Sign in'}</button></div></div>
 }
 
 function AppView({app,onBack}){
@@ -149,10 +155,12 @@ function PublicApp({slug}){
 }
 
 function Root(){
- const [app,setApp]=useState(null),path=location.pathname;
+ const [app,setApp]=useState(null),[token,setToken]=useState(()=>localStorage.getItem('ai-store-token')||''),[user,setUser]=useState(()=>{try{return JSON.parse(localStorage.getItem('ai-store-user')||'null')}catch{return null}}),[authOpen,setAuthOpen]=useState(false),path=location.pathname;
+ function authenticated(data){localStorage.setItem('ai-store-token',data.token);localStorage.setItem('ai-store-user',JSON.stringify(data.user));setToken(data.token);setUser(data.user);setAuthOpen(false)}
+ function logout(){localStorage.removeItem('ai-store-token');localStorage.removeItem('ai-store-user');setToken('');setUser(null)}
  if(app)return <AppView app={app} onBack={()=>setApp(null)}/>;
  if(path.startsWith('/run/'))return <AppRuntime slug={path.slice(5)}/>;
  if(path.startsWith('/app/'))return <PublicApp slug={path.slice(5)}/>;
- return <Home onResult={setApp}/>;
+ return <><Home onResult={setApp} token={token} user={user} onAuth={()=>setAuthOpen(true)} onLogout={logout}/>{authOpen&&<AuthModal onClose={()=>setAuthOpen(false)} onAuthenticated={authenticated}/>}</>;
 }
 createRoot(document.getElementById('root')).render(<Root/>);

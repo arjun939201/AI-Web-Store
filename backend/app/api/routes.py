@@ -6,10 +6,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
-from ..models import App
+from ..models import App, User, UserCredential
 from ..providers import get_provider
-from ..schemas import AppOut, SearchRequest, SearchResponse, ShareResponse
+from ..schemas import AppOut, AuthRequest, AuthResponse, SearchRequest, SearchResponse, ShareResponse, UserOut
 from ..services.apps import create_app
+from ..security import create_access_token, get_current_user, hash_password, verify_password
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -34,7 +35,7 @@ def to_app_out(app: App) -> AppOut:
     )
 
 
-def generate_and_store(payload: SearchRequest, request: Request, db: Session):
+def generate_and_store(payload: SearchRequest, request: Request, db: Session, current_user: User):
     try:
         spec = get_provider().generate_app_spec(payload.query)
     except Exception:
@@ -48,7 +49,7 @@ def generate_and_store(payload: SearchRequest, request: Request, db: Session):
         )
 
     try:
-        app = create_app(db, spec)
+        app = create_app(db, spec, creator_id=current_user.id)
         return {"app": to_app_out(app)}
     except SQLAlchemyError:
         db.rollback()
@@ -62,16 +63,47 @@ def generate_and_store(payload: SearchRequest, request: Request, db: Session):
         )
 
 
+@router.post("/auth/register", response_model=AuthResponse, status_code=201)
+def register(payload: AuthRequest, db: Session = Depends(get_db)):
+    if db.query(User).filter(User.email == payload.email).first():
+        raise HTTPException(status_code=409, detail="An account with this email already exists.")
+    salt, password_hash = hash_password(payload.password)
+    user = User(email=payload.email, name=payload.name or payload.email.split("@")[0])
+    user.credentials = UserCredential(password_salt=salt, password_hash=password_hash)
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Account registration failed")
+        raise HTTPException(status_code=409, detail="Unable to create this account.")
+    return {"token": create_access_token(user.id), "user": UserOut.model_validate(user, from_attributes=True)}
+
+
+@router.post("/auth/login", response_model=AuthResponse)
+def login(payload: AuthRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user or not user.credentials or not verify_password(payload.password, user.credentials.password_salt, user.credentials.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    return {"token": create_access_token(user.id), "user": UserOut.model_validate(user, from_attributes=True)}
+
+
+@router.get("/auth/me", response_model=UserOut)
+def me(current_user: User = Depends(get_current_user)):
+    return UserOut.model_validate(current_user, from_attributes=True)
+
+
 @router.post("/search", response_model=SearchResponse)
-def search(payload: SearchRequest, request: Request, db: Session = Depends(get_db)):
-    return generate_and_store(payload, request, db)
+def search(payload: SearchRequest, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return generate_and_store(payload, request, db, current_user)
 
 
 @router.post("/apps/generate", response_model=SearchResponse)
 def generate(
-    payload: SearchRequest, request: Request, db: Session = Depends(get_db)
+    payload: SearchRequest, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
-    return generate_and_store(payload, request, db)
+    return generate_and_store(payload, request, db, current_user)
 
 
 @router.get("/apps", response_model=list[AppOut])
