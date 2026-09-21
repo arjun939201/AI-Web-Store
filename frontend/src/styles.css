@@ -31,3 +31,5 @@
  .library{margin-top:44px;padding-top:22px}
  .app-list{max-height:calc(100vh - 390px)}
 }
+
+.data-form{display:grid;gap:14px;padding:18px;border:1px solid #292631;border-radius:14px;background:#111017}.data-form-actions{display:flex;align-items:center;gap:12px}.data-form-message{font-size:12px;color:#7edbb0}.data-table-wrap{overflow:auto;border:1px solid #292631;border-radius:14px;background:#111017}.data-table{width:100%;border-collapse:collapse;min-width:520px}.data-table th,.data-table td{padding:12px 14px;border-bottom:1px solid #25222c;text-align:left;font-size:13px}.data-table th{color:#85818d;font-weight:600;background:#15131a}.data-table td{color:#d5d2dc}.data-table tbody tr:last-child td{border-bottom:0}.data-delete{border:1px solid #3a2830;background:#1b1419;color:#e7a6b4;border-radius:8px;padding:6px 9px;font:500 11px Inter;cursor:pointer}.data-delete:hover{background:#24171e}.runtime-field input[type="checkbox"]{width:auto;justify-self:start;accent-color:#8d7cff}
