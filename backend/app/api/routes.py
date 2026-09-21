@@ -86,7 +86,16 @@ def login(payload: AuthRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not user.credentials or not verify_password(payload.password, user.credentials.password_salt, user.credentials.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
-    return {"token": create_access_token(user.id), "user": UserOut.model_validate(user, from_attributes=True)}
+    try:
+        token = create_access_token(user.id)
+    except RuntimeError:
+        logger.exception("Authentication secret is unavailable during login")
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication service is temporarily unavailable.",
+        )
+    return {"token": token, "user": UserOut.model_validate(user, from_attributes=True)}
+
 
 
 @router.get("/auth/me", response_model=UserOut)
