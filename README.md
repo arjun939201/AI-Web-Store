@@ -1,38 +1,106 @@
 # AI Store — AI-Powered Web App Store
 
-A minimal AI-first marketplace MVP: describe an application, generate a validated application specification with Grok/xAI, persist it in PostgreSQL, and open/share a stable app URL.
+AI Store is an AI-first web app marketplace. Users describe what they want to build, the backend asks Grok/xAI for a structured application specification, validates it, stores it in PostgreSQL, and returns a shareable application URL.
 
-## Stack
-React + Vite, FastAPI + Pydantic, PostgreSQL + SQLAlchemy, xAI/Grok provider, Render deployment.
+## Production architecture
 
-## Local backend
-1. cd backend
-2. python -m venv .venv
-3. Activate the environment.
-4. pip install -r requirements.txt
-5. Copy .env.example to .env.
-6. Set DATABASE_URL and XAI_API_KEY.
-7. uvicorn app.main:app --reload --port 8000
+- **Frontend:** React + Vite → Render Static Site
+- **Backend:** FastAPI + Pydantic → Render Web Service
+- **Database:** PostgreSQL → Render managed database
+- **AI:** xAI/Grok through `XAI_API_KEY`
+- **Deployment:** `render.yaml`
 
-## Local frontend
-1. cd frontend
-2. npm install
-3. Copy .env.example to .env.
-4. Set VITE_API_URL=http://localhost:8000
-5. npm run dev
+The AI generates structured specifications, not executable server-side code.
+
+## Deploy with Render Blueprint
+
+1. Push this repository to GitHub.
+2. In Render, choose **New → Blueprint** and select this repository.
+3. Render reads `render.yaml` and creates:
+   - `ai-store-api`
+   - `ai-store-web`
+   - `ai-store-db`
+4. Enter the secret `XAI_API_KEY` when Render requests it.
+5. After deployment, verify:
+   - `https://ai-store-api.onrender.com/health`
+   - `https://ai-store-web.onrender.com`
+
+### Important: Render URLs
+
+The names in `render.yaml` are the default Render service names. If you rename a service or Render assigns a different public URL, update:
+
+- backend `CORS_ORIGINS`
+- backend `PUBLIC_APP_URL`
+- frontend `VITE_API_URL`
+
+## Local development
+
+### Backend
+
+```bash
+cd backend
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# macOS/Linux:
+source .venv/bin/activate
+
+pip install -r requirements.txt
+copy .env.example .env
+# macOS/Linux: cp .env.example .env
+
+uvicorn app.main:app --reload --port 8000
+```
+
+Set `DATABASE_URL` and `XAI_API_KEY` in `.env`.
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+copy .env.example .env
+npm run dev
+```
+
+Set:
+
+```
+VITE_API_URL=http://localhost:8000
+```
 
 ## API
-GET /health
-POST /api/search
-POST /api/apps/generate
-GET /api/apps
-GET /api/apps/{id-or-slug}
-POST /api/apps/{slug}/share
 
-Interactive documentation is available at /docs.
+- `GET /health`
+- `POST /api/search`
+- `POST /api/apps/generate`
+- `GET /api/apps`
+- `GET /api/apps/{id-or-slug}`
+- `POST /api/apps/{slug}/share`
+- `GET /docs`
 
-## Render
-Use render.yaml for the FastAPI service. Create a PostgreSQL database and configure DATABASE_URL, XAI_API_KEY, CORS_ORIGINS and PUBLIC_APP_URL. A separate static frontend can use VITE_API_URL pointing to the deployed API.
+## Environment variables
+
+Backend:
+
+```
+DATABASE_URL=
+XAI_API_KEY=
+XAI_MODEL=grok-3-mini
+XAI_BASE_URL=https://api.x.ai/v1/chat/completions
+AI_PROVIDER=grok
+CORS_ORIGINS=
+PUBLIC_APP_URL=
+```
+
+Frontend:
+
+```
+VITE_API_URL=
+```
+
+Never put `XAI_API_KEY` or database credentials in frontend variables.
 
 ## Security
-Secrets stay in environment variables. AI output is parsed and validated by Pydantic. No AI-generated code is executed. Before high-volume public use, add Redis or gateway-backed rate limiting and authentication.
+
+AI output is validated with Pydantic before persistence. Generated AI code is never executed by the backend. Production traffic should additionally use authentication and a Redis/gateway-backed rate limiter before high-volume public use.
