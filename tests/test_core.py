@@ -110,3 +110,52 @@ def test_runtime_rejects_unsupported_component_type():
         pass
     else:
         raise AssertionError("Expected unsupported runtime component to fail")
+
+
+def test_runtime_data_model_accepts_crud_entities():
+    spec = AppSpec(
+        name="Expense Tracker",
+        description="Track expenses",
+        category="Finance",
+        runtime={
+            "app_type": "finance",
+            "entities": [{
+                "name": "Expense",
+                "fields": [
+                    {"key": "amount", "label": "Amount", "type": "number", "required": True},
+                    {"key": "category", "label": "Category", "type": "select", "options": ["Food", "Travel"]},
+                ],
+                "seed": [{"amount": 100, "category": "Food"}],
+            }],
+            "pages": [{
+                "name": "Expenses",
+                "components": [
+                    {"type": "data_form", "entity": "Expense"},
+                    {"type": "data_table", "entity": "Expense"},
+                    {"type": "data_summary", "entity": "Expense", "aggregate": "sum", "data_key": "amount"},
+                ],
+            }],
+        },
+    )
+    assert spec.runtime.entities[0].fields[0].type == "number"
+    assert spec.runtime.pages[0].components[0].type == "data_form"
+    assert spec.runtime.pages[0].components[2].aggregate == "sum"
+
+
+def test_runtime_rejects_unknown_data_field_type():
+    try:
+        AppSpec(
+            name="Unsafe",
+            description="Test",
+            category="Utility",
+            runtime={
+                "entities": [{
+                    "name": "Item",
+                    "fields": [{"key": "value", "label": "Value", "type": "script"}],
+                }]
+            },
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected unsupported data field type to fail")
