@@ -76,3 +76,37 @@ def test_groq_requires_api_key(monkeypatch):
         assert str(exc) == "GROQ_API_KEY is not configured."
     else:
         raise AssertionError("Expected missing API key to fail")
+
+
+def test_runtime_spec_accepts_controlled_components():
+    spec = AppSpec(
+        name="Snake Classic",
+        description="A snake game",
+        category="Game",
+        runtime={
+            "app_type": "game",
+            "pages": [{
+                "name": "Game",
+                "components": [
+                    {"type": "game_board"},
+                    {"type": "button", "label": "Start", "action": "start_game"},
+                ],
+            }],
+        },
+    )
+    assert spec.runtime.app_type == "game"
+    assert spec.runtime.pages[0].components[0].type == "game_board"
+
+
+def test_runtime_rejects_unsupported_component_type():
+    try:
+        AppSpec(
+            name="Unsafe",
+            description="Test",
+            category="Utility",
+            runtime={"pages": [{"name": "Home", "components": [{"type": "script"}]}]},
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected unsupported runtime component to fail")
