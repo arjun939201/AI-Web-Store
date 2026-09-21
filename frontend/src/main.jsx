@@ -70,8 +70,16 @@ function DataForm({entity,state,setState}){
 function DataTable({entity,fields,state,setState,limit}){
  const rows=((state.__data||{})[entity.name]||[]).slice(-limit).reverse();
  const columns=fields.length?entity.fields.filter(field=>fields.includes(field.key)):entity.fields;
+ const [editingId,setEditingId]=useState(null),[draft,setDraft]=useState({});
+ function startEdit(row){setEditingId(row.__id);setDraft(Object.fromEntries(entity.fields.map(field=>[field.key,row[field.key]??fieldDefault(field)])))}
+ function cancelEdit(){setEditingId(null);setDraft({})}
+ function saveEdit(){
+  setState(current=>({...current,__data:{...(current.__data||{}),[entity.name]:((current.__data||{})[entity.name]||[]).map(row=>row.__id===editingId?{...row,...draft}:row)}}));
+  cancelEdit();
+ }
  function remove(id){setState(current=>({...current,__data:{...(current.__data||{}),[entity.name]:((current.__data||{})[entity.name]||[]).filter(row=>row.__id!==id)}}))}
- return <div className="data-table-wrap">{rows.length?<table className="data-table"><thead><tr>{columns.map(field=><th key={field.key}>{field.label}</th>)}<th> </th></tr></thead><tbody>{rows.map(row=><tr key={row.__id}>{columns.map(field=><td key={field.key}>{field.type==='boolean'?(row[field.key]?'Yes':'No'):String(row[field.key]??'')}</td>)}<td><button className="data-delete" onClick={()=>remove(row.__id)} type="button">Delete</button></td></tr>)}</tbody></table>:<div className="runtime-empty">No {entity.name.toLowerCase()} records yet.</div>}</div>
+ function update(key,value){setDraft(current=>({...current,[key]:value}))}
+ return <div className="data-table-wrap">{rows.length?<table className="data-table"><thead><tr>{columns.map(field=><th key={field.key}>{field.label}</th>)}<th> </th></tr></thead><tbody>{rows.map(row=>{const editing=row.__id===editingId;return <tr key={row.__id}>{columns.map(field=><td key={field.key}>{editing?(field.type==='select'?<select className="data-edit-input" value={String(draft[field.key]??'')} onChange={e=>update(field.key,e.target.value)}>{field.options.map((option,i)=><option key={i} value={option}>{option}</option>)}</select>:field.type==='boolean'?<input type="checkbox" checked={Boolean(draft[field.key])} onChange={e=>update(field.key,e.target.checked)}/>:<input className="data-edit-input" type={field.type==='number'?'number':field.type==='date'?'date':'text'} value={String(draft[field.key]??'')} onChange={e=>update(field.key,field.type==='number'?(e.target.value===''?'':Number(e.target.value)):e.target.value)}/>):field.type==='boolean'?(row[field.key]?'Yes':'No'):String(row[field.key]??'')}</td>)}<td className="data-row-actions">{editing?<><button className="data-edit save" onClick={saveEdit} type="button">Save</button><button className="data-edit" onClick={cancelEdit} type="button">Cancel</button></>:<><button className="data-edit" onClick={()=>startEdit(row)} type="button">Edit</button><button className="data-delete" onClick={()=>remove(row.__id)} type="button">Delete</button></>}</td></tr>})}</tbody></table>:<div className="runtime-empty">No {entity.name.toLowerCase()} records yet.</div>}</div>
 }
 
 function DataSummary({entity,field,aggregate,state}){
