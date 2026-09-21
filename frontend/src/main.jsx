@@ -40,8 +40,61 @@ function SnakeBoard(){
  return <div className="game-wrap"><div className="game-top"><strong>Score: {score}</strong><span>{running?'Playing':'Paused'}</span></div><div className="game-board">{Array.from({length:size*size},(_,i)=>{const x=i%size,y=Math.floor(i/size),isSnake=snake.some(([sx,sy])=>sx===x&&sy===y),isFood=food[0]===x&&food[1]===y;return <div key={i} className={'game-cell '+(isSnake?'snake':'')+(isFood?' food':'')}/>})}</div><div className="game-controls"><button className="primary" onClick={()=>setRunning(true)}>Start</button><button className="secondary" onClick={()=>setRunning(false)}>Pause</button><button className="secondary" onClick={reset}>Reset</button></div><p className="game-help">Use the arrow keys to move.</p></div>
 }
 
-function RuntimeComponent({component,state,setState,onAction,isGame}){
+function entityByName(runtime,name){return (runtime.entities||[]).find(entity=>entity.name===name)}
+
+function fieldDefault(field){
+ if(field.default!==null&&field.default!==undefined)return field.default;
+ if(field.type==='boolean')return false;
+ return '';
+}
+
+function DataForm({entity,state,setState}){
+ const [draft,setDraft]=useState(()=>Object.fromEntries(entity.fields.map(field=>[field.key,fieldDefault(field)])));
+ const [message,setMessage]=useState('');
+ function update(key,value){setDraft(current=>({...current,[key]:value}));setMessage('')}
+ function submit(e){
+  e.preventDefault();
+  const missing=entity.fields.find(field=>field.required&&(draft[field.key]===undefined||draft[field.key]===null||draft[field.key]===''));
+  if(missing){setMessage(missing.label+' is required.');return}
+  const record={...draft,__id:crypto.randomUUID?.()||String(Date.now())};
+  setState(current=>({...current,__data:{...(current.__data||{}),[entity.name]:[...((current.__data||{})[entity.name]||[]),record]}}));
+  setDraft(Object.fromEntries(entity.fields.map(field=>[field.key,fieldDefault(field)])));
+  setMessage('Saved');
+ }
+ return <form className="data-form" onSubmit={submit}>
+  {entity.fields.map(field=><label className="runtime-field" key={field.key}><span>{field.label}{field.required?' *':''}</span>{field.type==='select'?<select value={String(draft[field.key]??'')} onChange={e=>update(field.key,e.target.value)}><option value="">Choose...</option>{field.options.map((option,i)=><option key={i} value={option}>{option}</option>)}</select>:field.type==='boolean'?<input type="checkbox" checked={Boolean(draft[field.key])} onChange={e=>update(field.key,e.target.checked)}/>:<input type={field.type==='number'?'number':field.type==='date'?'date':'text'} value={String(draft[field.key]??'')} onChange={e=>update(field.key,field.type==='number'?(e.target.value===''?'':Number(e.target.value)):e.target.value)} />}</label>)}
+  <div className="data-form-actions"><button className="runtime-action" type="submit">Add {entity.name}</button>{message&&<span className="data-form-message">{message}</span>}</div>
+ </form>
+}
+
+function DataTable({entity,fields,state,setState,limit}){
+ const rows=((state.__data||{})[entity.name]||[]).slice(-limit).reverse();
+ const columns=fields.length?entity.fields.filter(field=>fields.includes(field.key)):entity.fields;
+ function remove(id){setState(current=>({...current,__data:{...(current.__data||{}),[entity.name]:((current.__data||{})[entity.name]||[]).filter(row=>row.__id!==id)}}))}
+ return <div className="data-table-wrap">{rows.length?<table className="data-table"><thead><tr>{columns.map(field=><th key={field.key}>{field.label}</th>)}<th> </th></tr></thead><tbody>{rows.map(row=><tr key={row.__id}>{columns.map(field=><td key={field.key}>{field.type==='boolean'?(row[field.key]?'Yes':'No'):String(row[field.key]??'')}</td>)}<td><button className="data-delete" onClick={()=>remove(row.__id)} type="button">Delete</button></td></tr>)}</tbody></table>:<div className="runtime-empty">No {entity.name.toLowerCase()} records yet.</div>}</div>
+}
+
+function DataSummary({entity,field,aggregate,state}){
+ const rows=((state.__data||{})[entity.name]||[]);
+ let value=rows.length;
+ if(aggregate!=='count'&&field){const values=rows.map(row=>Number(row[field])).filter(value=>Number.isFinite(value));value=values.length?(aggregate==='sum'?values.reduce((a,b)=>a+b,0):values.reduce((a,b)=>a+b,0)/values.length):0}
+ return <div className="runtime-stat"><span>{aggregate==='count'?'Total '+entity.name:aggregate.toUpperCase()+' '+field}</span><strong>{aggregate==='count'?value:Number(value).toFixed(2)}</strong></div>
+}
+
+function RuntimeComponent({component,state,setState,onAction,isGame,runtime}){
  const value=component.data_key?state[component.data_key]??'':'';
+ if(component.type==='data_form'){
+  const entity=entityByName(runtime,component.entity);
+  return entity?<DataForm entity={entity} state={state} setState={setState}/>:null;
+ }
+ if(component.type==='data_table'){
+  const entity=entityByName(runtime,component.entity);
+  return entity?<DataTable entity={entity} fields={component.fields||[]} state={state} setState={setState} limit={component.limit||50}/>:null;
+ }
+ if(component.type==='data_summary'){
+  const entity=entityByName(runtime,component.entity);
+  return entity?<DataSummary entity={entity} field={component.data_key} aggregate={component.aggregate||'count'} state={state}/>:null;
+ }
  switch(component.type){
   case 'heading': return <h3 className="runtime-component-heading">{component.text||component.label}</h3>;
   case 'text': return <p className="runtime-component-text">{component.text||component.label}</p>;
@@ -63,7 +116,7 @@ function RuntimeComponent({component,state,setState,onAction,isGame}){
 function AppRuntime({slug}){
  const [app,setApp]=useState(null),[err,setErr]=useState(''),[activePage,setActivePage]=useState(0),[state,setState]=useState({});
  useEffect(()=>{fetch(API+'/api/apps/'+slug).then(async r=>{if(!r.ok)throw Error('Application not found');setApp(await r.json())}).catch(e=>setErr(e.message))},[slug]);
- useEffect(()=>{if(app){try{const saved=localStorage.getItem('ai-store:'+app.slug);if(saved)setState(JSON.parse(saved))}catch{}}},[app]);
+ useEffect(()=>{if(app){try{const saved=localStorage.getItem('ai-store:'+app.slug);const parsed=saved?JSON.parse(saved):{};const runtime=app.specification?.runtime||{};if(!parsed.__data){parsed.__data=Object.fromEntries((runtime.entities||[]).map(entity=>[entity.name,(entity.seed||[]).map((row,i)=>({...row,__id:'seed-'+entity.name+'-'+i}))]));}setState(parsed)}catch{}}},[app]);
  useEffect(()=>{if(app)try{localStorage.setItem('ai-store:'+app.slug,JSON.stringify(state))}catch{}},[app,state]);
  if(err)return <div className="center"><p>{err}</p><a className="secondary" href="/">Back to AI Store</a></div>;
  if(!app)return <div className="center"><LoaderCircle className="spin"/></div>;
@@ -77,7 +130,7 @@ function AppRuntime({slug}){
   else if(action==='reset')setState({});
   else if(action==='save')setState(s=>({...s,saved:true}));
  }
- return <div className="shell runtime-shell"><header className="top"><a className="back" href={'/app/'+app.slug}><ChevronLeft/> Back to App</a><span className="topmark"><Sparkles/> AI Store</span></header><main className="runtime"><div className="runtime-head"><div className="app-icon">{app.icon}</div><div><span className="pill">{app.category}</span><h1>{app.name}</h1><p>{app.description}</p></div></div><div className="runtime-grid"><aside className="runtime-nav"><h2>Pages</h2>{pages.map((item,i)=><button key={i} className={i===activePage?'active':''} onClick={()=>setActivePage(i)}>{item.name}</button>)}</aside><section className="runtime-panel"><div className="runtime-panel-head"><div><h2>{page.name}</h2><p>Interactive generated application.</p></div></div><div className="runtime-components">{page.components.map((component,i)=><RuntimeComponent key={i} component={component} state={state} setState={setState} onAction={onAction} isGame={runtime.app_type==='game'}/>)}</div></section></div></main></div>
+ return <div className="shell runtime-shell"><header className="top"><a className="back" href={'/app/'+app.slug}><ChevronLeft/> Back to App</a><span className="topmark"><Sparkles/> AI Store</span></header><main className="runtime"><div className="runtime-head"><div className="app-icon">{app.icon}</div><div><span className="pill">{app.category}</span><h1>{app.name}</h1><p>{app.description}</p></div></div><div className="runtime-grid"><aside className="runtime-nav"><h2>Pages</h2>{pages.map((item,i)=><button key={i} className={i===activePage?'active':''} onClick={()=>setActivePage(i)}>{item.name}</button>)}</aside><section className="runtime-panel"><div className="runtime-panel-head"><div><h2>{page.name}</h2><p>Interactive generated application.</p></div></div><div className="runtime-components">{page.components.map((component,i)=><RuntimeComponent key={i} component={component} state={state} setState={setState} onAction={onAction} isGame={runtime.app_type==='game'} runtime={runtime}/>)}</div></section></div></main></div>
 }
 function PublicApp({slug}){
  const [app,setApp]=useState(null),[err,setErr]=useState('');
