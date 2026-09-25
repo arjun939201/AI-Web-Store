@@ -78,7 +78,15 @@ def register(payload: AuthRequest, db: Session = Depends(get_db)):
         db.rollback()
         logger.exception("Account registration failed")
         raise HTTPException(status_code=409, detail="Unable to create this account.")
-    return {"token": create_access_token(user.id), "user": UserOut.model_validate(user, from_attributes=True)}
+    try:
+        token = create_access_token(user.id)
+    except RuntimeError:
+        logger.exception("Authentication secret is unavailable during registration")
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication service is temporarily unavailable.",
+        )
+    return {"token": token, "user": UserOut.model_validate(user, from_attributes=True)}
 
 
 @router.post("/auth/login", response_model=AuthResponse)
