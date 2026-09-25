@@ -2,6 +2,7 @@ import React,{useState,useEffect} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Search,ArrowUpRight,Share2,ChevronLeft,LoaderCircle,Sparkles} from 'lucide-react';
 import './styles.css';
+import {listRecords,createRecord,updateRecord,deleteRecord} from './dataApi.js';
 const API=import.meta.env.VITE_API_URL||'http://localhost:8000';
 
 function Home({onResult,token,user,onAuth,onLogout}){
@@ -54,38 +55,35 @@ function fieldDefault(field){
  return '';
 }
 
-function DataForm({entity,state,setState}){
+function DataForm({entity,onCreate}) {
  const [draft,setDraft]=useState(()=>Object.fromEntries(entity.fields.map(field=>[field.key,fieldDefault(field)])));
- const [message,setMessage]=useState('');
+ const [message,setMessage]=useState(''),[saving,setSaving]=useState(false);
  function update(key,value){setDraft(current=>({...current,[key]:value}));setMessage('')}
- function submit(e){
-  e.preventDefault();
+ async function submit(e){
+  e.preventDefault();if(saving)return;
   const missing=entity.fields.find(field=>field.required&&(draft[field.key]===undefined||draft[field.key]===null||draft[field.key]===''));
   if(missing){setMessage(missing.label+' is required.');return}
-  const record={...draft,__id:crypto.randomUUID?.()||String(Date.now())};
-  setState(current=>({...current,__data:{...(current.__data||{}),[entity.name]:[...((current.__data||{})[entity.name]||[]),record]}}));
-  setDraft(Object.fromEntries(entity.fields.map(field=>[field.key,fieldDefault(field)])));
-  setMessage('Saved');
+  setSaving(true);setMessage('');
+  try{await onCreate({...draft});setDraft(Object.fromEntries(entity.fields.map(field=>[field.key,fieldDefault(field)])));setMessage('Saved to your account.')}
+  catch(error){setMessage(error.message||'Could not save record.')}
+  finally{setSaving(false)}
  }
  return <form className="data-form" onSubmit={submit}>
-  {entity.fields.map(field=><label className="runtime-field" key={field.key}><span>{field.label}{field.required?' *':''}</span>{field.type==='select'?<select value={String(draft[field.key]??'')} onChange={e=>update(field.key,e.target.value)}><option value="">Choose...</option>{field.options.map((option,i)=><option key={i} value={option}>{option}</option>)}</select>:field.type==='boolean'?<input type="checkbox" checked={Boolean(draft[field.key])} onChange={e=>update(field.key,e.target.checked)}/>:<input type={field.type==='number'?'number':field.type==='date'?'date':'text'} value={String(draft[field.key]??'')} onChange={e=>update(field.key,field.type==='number'?(e.target.value===''?'':Number(e.target.value)):e.target.value)} />}</label>)}
-  <div className="data-form-actions"><button className="runtime-action" type="submit">Add {entity.name}</button>{message&&<span className="data-form-message">{message}</span>}</div>
+  {entity.fields.map(field=><label className="runtime-field" key={field.key}><span>{field.label}{field.required?' *':''}</span>{field.type==='select'?<select required={field.required} value={String(draft[field.key]??'')} onChange={e=>update(field.key,e.target.value)}><option value="">Choose...</option>{(field.options||[]).map((option,i)=><option key={i} value={option}>{option}</option>)}</select>:field.type==='boolean'?<input type="checkbox" checked={Boolean(draft[field.key])} onChange={e=>update(field.key,e.target.checked)}/>:<input required={field.required} type={field.type==='number'?'number':field.type==='date'?'date':'text'} value={String(draft[field.key]??'')} onChange={e=>update(field.key,field.type==='number'?(e.target.value===''?'':Number(e.target.value)):e.target.value)} />}</label>)}
+  <div className="data-form-actions"><button className="runtime-action" type="submit" disabled={saving}>{saving?'Saving…':'Add '+entity.name}</button>{message&&<span className="data-form-message" role="status">{message}</span>}</div>
  </form>
 }
 
-function DataTable({entity,fields,state,setState,limit}){
+function DataTable({entity,fields,state,onUpdate,onDelete,limit}) {
  const rows=((state.__data||{})[entity.name]||[]).slice(-limit).reverse();
  const columns=fields.length?entity.fields.filter(field=>fields.includes(field.key)):entity.fields;
- const [editingId,setEditingId]=useState(null),[draft,setDraft]=useState({});
- function startEdit(row){setEditingId(row.__id);setDraft(Object.fromEntries(entity.fields.map(field=>[field.key,row[field.key]??fieldDefault(field)])))}
- function cancelEdit(){setEditingId(null);setDraft({})}
- function saveEdit(){
-  setState(current=>({...current,__data:{...(current.__data||{}),[entity.name]:((current.__data||{})[entity.name]||[]).map(row=>row.__id===editingId?{...row,...draft}:row)}}));
-  cancelEdit();
- }
- function remove(id){setState(current=>({...current,__data:{...(current.__data||{}),[entity.name]:((current.__data||{})[entity.name]||[]).filter(row=>row.__id!==id)}}))}
+ const [editingId,setEditingId]=useState(null),[draft,setDraft]=useState({}),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ function startEdit(row){setEditingId(row.__id);setDraft(Object.fromEntries(entity.fields.map(field=>[field.key,row[field.key]??fieldDefault(field)]));setError('')}
+ function cancelEdit(){setEditingId(null);setDraft({});setError('')}
+ async function saveEdit(){if(busy)return;setBusy(true);setError('');try{await onUpdate(editingId,draft);cancelEdit()}catch(e){setError(e.message||'Update failed')}finally{setBusy(false)}}
+ async function remove(id){if(busy)return;setBusy(true);setError('');try{await onDelete(id)}catch(e){setError(e.message||'Delete failed')}finally{setBusy(false)}}
  function update(key,value){setDraft(current=>({...current,[key]:value}))}
- return <div className="data-table-wrap">{rows.length?<table className="data-table"><thead><tr>{columns.map(field=><th key={field.key}>{field.label}</th>)}<th> </th></tr></thead><tbody>{rows.map(row=>{const editing=row.__id===editingId;return <tr key={row.__id}>{columns.map(field=><td key={field.key}>{editing?(field.type==='select'?<select className="data-edit-input" value={String(draft[field.key]??'')} onChange={e=>update(field.key,e.target.value)}>{field.options.map((option,i)=><option key={i} value={option}>{option}</option>)}</select>:field.type==='boolean'?<input type="checkbox" checked={Boolean(draft[field.key])} onChange={e=>update(field.key,e.target.checked)}/>:<input className="data-edit-input" type={field.type==='number'?'number':field.type==='date'?'date':'text'} value={String(draft[field.key]??'')} onChange={e=>update(field.key,field.type==='number'?(e.target.value===''?'':Number(e.target.value)):e.target.value)}/>):field.type==='boolean'?(row[field.key]?'Yes':'No'):String(row[field.key]??'')}</td>)}<td className="data-row-actions">{editing?<><button className="data-edit save" onClick={saveEdit} type="button">Save</button><button className="data-edit" onClick={cancelEdit} type="button">Cancel</button></>:<><button className="data-edit" onClick={()=>startEdit(row)} type="button">Edit</button><button className="data-delete" onClick={()=>remove(row.__id)} type="button">Delete</button></>}</td></tr>})}</tbody></table>:<div className="runtime-empty">No {entity.name.toLowerCase()} records yet.</div>}</div>
+ return <div className="data-table-wrap">{error&&<div className="error" role="alert">{error}</div>}{rows.length?<table className="data-table"><thead><tr>{columns.map(field=><th key={field.key}>{field.label}</th>)}<th>Actions</th></tr></thead><tbody>{rows.map(row=>{const editing=row.__id===editingId;return <tr key={row.__id}>{columns.map(field=><td key={field.key}>{editing?(field.type==='select'?<select className="data-edit-input" value={String(draft[field.key]??'')} onChange={e=>update(field.key,e.target.value)}><option value="">Choose...</option>{(field.options||[]).map((option,i)=><option key={i} value={option}>{option}</option>)}</select>:field.type==='boolean'?<input type="checkbox" checked={Boolean(draft[field.key])} onChange={e=>update(field.key,e.target.checked)}/>:<input className="data-edit-input" type={field.type==='number'?'number':field.type==='date'?'date':'text'} value={String(draft[field.key]??'')} onChange={e=>update(field.key,field.type==='number'?(e.target.value===''?'':Number(e.target.value)):e.target.value)}/>):field.type==='boolean'?(row[field.key]?'Yes':'No'):String(row[field.key]??'')}</td>)}<td className="data-row-actions">{editing?<><button className="data-edit save" disabled={busy} onClick={saveEdit} type="button">Save</button><button className="data-edit" disabled={busy} onClick={cancelEdit} type="button">Cancel</button></>:<><button className="data-edit" disabled={busy} onClick={()=>startEdit(row)} type="button">Edit</button><button className="data-delete" disabled={busy} onClick={()=>remove(row.__id)} type="button">Delete</button></>}</td></tr>})}</tbody></table>:<div className="runtime-empty">No {entity.name.toLowerCase()} records yet.</div>}</div>
 }
 
 function DataSummary({entity,field,aggregate,state}){
@@ -95,15 +93,15 @@ function DataSummary({entity,field,aggregate,state}){
  return <div className="runtime-stat"><span>{aggregate==='count'?'Total '+entity.name:aggregate.toUpperCase()+' '+field}</span><strong>{aggregate==='count'?value:Number(value).toFixed(2)}</strong></div>
 }
 
-function RuntimeComponent({component,state,setState,onAction,isGame,runtime}){
+function RuntimeComponent({component,state,setState,onAction,isGame,runtime,onCreate,onUpdate,onDelete}){
  const value=component.data_key?state[component.data_key]??'':'';
  if(component.type==='data_form'){
   const entity=entityByName(runtime,component.entity);
-  return entity?<DataForm entity={entity} state={state} setState={setState}/>:null;
+  return entity?<DataForm entity={entity} onCreate={data=>onCreate(entity.name,data)}/>:null;
  }
  if(component.type==='data_table'){
   const entity=entityByName(runtime,component.entity);
-  return entity?<DataTable entity={entity} fields={component.fields||[]} state={state} setState={setState} limit={component.limit||50}/>:null;
+  return entity?<DataTable entity={entity} fields={component.fields||[]} state={state} onUpdate={(id,data)=>onUpdate(entity.name,id,data)} onDelete={id=>onDelete(entity.name,id)} limit={component.limit||50}/>:null;
  }
  if(component.type==='data_summary'){
   const entity=entityByName(runtime,component.entity);
@@ -127,11 +125,19 @@ function RuntimeComponent({component,state,setState,onAction,isGame,runtime}){
  }
 }
 
-function AppRuntime({slug}){
+function AppRuntime({slug,token,onLogout}){
  const [app,setApp]=useState(null),[err,setErr]=useState(''),[activePage,setActivePage]=useState(0),[state,setState]=useState({});
  useEffect(()=>{fetch(API+'/api/apps/'+slug).then(async r=>{if(!r.ok)throw Error('Application not found');setApp(await r.json())}).catch(e=>setErr(e.message))},[slug]);
- useEffect(()=>{if(app){try{const saved=localStorage.getItem('ai-store:'+app.slug);const parsed=saved?JSON.parse(saved):{};const runtime=app.specification?.runtime||{};if(!parsed.__data){parsed.__data=Object.fromEntries((runtime.entities||[]).map(entity=>[entity.name,(entity.seed||[]).map((row,i)=>({...row,__id:'seed-'+entity.name+'-'+i}))]));}setState(parsed)}catch{}}},[app]);
- useEffect(()=>{if(app)try{localStorage.setItem('ai-store:'+app.slug,JSON.stringify(state))}catch{}},[app,state]);
+ useEffect(()=>{if(!app)return;let active=true;const entities=app.specification?.runtime?.entities||[];setState({});if(!entities.length)return;
+  if(!token){setErr('Sign in to load and save this app’s private records.');return;}
+  Promise.all(entities.map(async entity=>[entity.name,await listRecords(app.slug,entity.name,token)]))
+   .then(entries=>{if(active){setState({__data:Object.fromEntries(entries.map(([name,records])=>[name,records.map(record=>({...record.data,__id:String(record.id)}))]))});setErr('')}})
+   .catch(error=>{if(active){setErr(error.message);if(error.message.includes('session has expired'))onLogout?.() }});
+  return()=>{active=false};
+ },[app,token,slug]);
+ async function createRuntimeRecord(entity,data){const record=await createRecord(app.slug,entity,token,data);setState(current=>({...current,__data:{...(current.__data||{}),[entity]:[...((current.__data||{})[entity]||[]),{...record.data,__id:String(record.id)}]}}))}
+ async function updateRuntimeRecord(entity,id,data){const record=await updateRecord(app.slug,entity,id,token,data);setState(current=>({...current,__data:{...(current.__data||{}),[entity]:((current.__data||{})[entity]||[]).map(row=>row.__id===String(id)?{...record.data,__id:String(record.id)}:row)}}))}
+ async function deleteRuntimeRecord(entity,id){await deleteRecord(app.slug,entity,id,token);setState(current=>({...current,__data:{...(current.__data||{}),[entity]:((current.__data||{})[entity]||[]).filter(row=>row.__id!==String(id))}}))}
  if(err)return <div className="center"><p>{err}</p><a className="secondary" href="/">Back to AI Store</a></div>;
  if(!app)return <div className="center"><LoaderCircle className="spin"/></div>;
  const runtime=(app.specification||{}).runtime||{};
@@ -144,7 +150,7 @@ function AppRuntime({slug}){
   else if(action==='reset')setState({});
   else if(action==='save')setState(s=>({...s,saved:true}));
  }
- return <div className="shell runtime-shell"><header className="top"><a className="back" href={'/app/'+app.slug}><ChevronLeft/> Back to App</a><span className="topmark"><Sparkles/> AI Store</span></header><main className="runtime"><div className="runtime-head"><div className="app-icon">{app.icon}</div><div><span className="pill">{app.category}</span><h1>{app.name}</h1><p>{app.description}</p></div></div><div className="runtime-grid"><aside className="runtime-nav"><h2>Pages</h2>{pages.map((item,i)=><button key={i} className={i===activePage?'active':''} onClick={()=>setActivePage(i)}>{item.name}</button>)}</aside><section className="runtime-panel"><div className="runtime-panel-head"><div><h2>{page.name}</h2><p>Interactive generated application.</p></div></div><div className="runtime-components">{page.components.map((component,i)=><RuntimeComponent key={i} component={component} state={state} setState={setState} onAction={onAction} isGame={runtime.app_type==='game'} runtime={runtime}/>)}</div></section></div></main></div>
+ return <div className="shell runtime-shell"><header className="top"><a className="back" href={'/app/'+app.slug}><ChevronLeft/> Back to App</a><span className="topmark"><Sparkles/> AI Store</span></header><main className="runtime"><div className="runtime-head"><div className="app-icon">{app.icon}</div><div><span className="pill">{app.category}</span><h1>{app.name}</h1><p>{app.description}</p></div></div><div className="runtime-grid"><aside className="runtime-nav"><h2>Pages</h2>{pages.map((item,i)=><button key={i} className={i===activePage?'active':''} onClick={()=>setActivePage(i)}>{item.name}</button>)}</aside><section className="runtime-panel"><div className="runtime-panel-head"><div><h2>{page.name}</h2><p>Interactive generated application.</p></div></div><div className="runtime-components">{page.components.map((component,i)=><RuntimeComponent key={i} component={component} state={state} setState={setState} onAction={onAction} isGame={runtime.app_type==='game'} runtime={runtime} onCreate={createRuntimeRecord} onUpdate={updateRuntimeRecord} onDelete={deleteRuntimeRecord}/>)}</div></section></div></main></div>
 }
 function PublicApp({slug}){
  const [app,setApp]=useState(null),[err,setErr]=useState('');
@@ -159,7 +165,7 @@ function Root(){
  function authenticated(data){localStorage.setItem('ai-store-token',data.token);localStorage.setItem('ai-store-user',JSON.stringify(data.user));setToken(data.token);setUser(data.user);setAuthOpen(false)}
  function logout(){localStorage.removeItem('ai-store-token');localStorage.removeItem('ai-store-user');setToken('');setUser(null)}
  if(app)return <AppView app={app} onBack={()=>setApp(null)}/>;
- if(path.startsWith('/run/'))return <AppRuntime slug={path.slice(5)}/>;
+ if(path.startsWith('/run/'))return <AppRuntime slug={path.slice(5)} token={token} onLogout={logout}/>;
  if(path.startsWith('/app/'))return <PublicApp slug={path.slice(5)}/>;
  return <><Home onResult={setApp} token={token} user={user} onAuth={()=>setAuthOpen(true)} onLogout={logout}/>{authOpen&&<AuthModal onClose={()=>setAuthOpen(false)} onAuthenticated={authenticated}/>}</>;
 }
