@@ -78,7 +78,7 @@ function DataTable({entity,fields,state,onUpdate,onDelete,limit}) {
  const rows=((state.__data||{})[entity.name]||[]).slice(-limit).reverse();
  const columns=fields.length?entity.fields.filter(field=>fields.includes(field.key)):entity.fields;
  const [editingId,setEditingId]=useState(null),[draft,setDraft]=useState({}),[busy,setBusy]=useState(false),[error,setError]=useState('');
- function startEdit(row){setEditingId(row.__id);setDraft(Object.fromEntries(entity.fields.map(field=>[field.key,row[field.key]??fieldDefault(field)]));setError('')}
+ function startEdit(row){setEditingId(row.__id);setDraft(Object.fromEntries(entity.fields.map(field=>[field.key,row[field.key]??fieldDefault(field)])));setError('')}
  function cancelEdit(){setEditingId(null);setDraft({});setError('')}
  async function saveEdit(){if(busy)return;setBusy(true);setError('');try{await onUpdate(editingId,draft);cancelEdit()}catch(e){setError(e.message||'Update failed')}finally{setBusy(false)}}
  async function remove(id){if(busy)return;setBusy(true);setError('');try{await onDelete(id)}catch(e){setError(e.message||'Delete failed')}finally{setBusy(false)}}
