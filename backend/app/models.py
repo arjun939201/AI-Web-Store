@@ -16,3 +16,16 @@ class AppFeature(Base):
  __tablename__="app_features"; id=Column(Integer,primary_key=True); app_id=Column(Integer,ForeignKey("apps.id"),nullable=False); name=Column(String(180),nullable=False); description=Column(Text); app=relationship("App",back_populates="features")
 class AppVersion(Base):
  __tablename__="app_versions"; id=Column(Integer,primary_key=True); app_id=Column(Integer,ForeignKey("apps.id"),nullable=False); version=Column(String(40),nullable=False); specification=Column(JsonType,nullable=False); created_at=Column(DateTime(timezone=True),default=now,nullable=False); app=relationship("App",back_populates="versions")
+
+class AppRecord(Base):
+    """A private data row owned by one user within one generated app."""
+
+    __tablename__ = "app_records"
+
+    id = Column(Integer, primary_key=True)
+    app_id = Column(Integer, ForeignKey("apps.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    entity = Column(String(80), nullable=False)
+    payload = Column(JsonType, nullable=False, default=dict)
+    created_at = Column(DateTime(timezone=True), default=now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=now, onupdate=now, nullable=False)
