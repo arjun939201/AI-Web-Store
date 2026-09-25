@@ -1,12 +1,12 @@
 import logging
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
-from ..models import App, User, UserCredential
+from ..models import App, AppRecord, User, UserCredential
 from ..providers import get_provider
 from ..schemas import AppOut, AuthRequest, AuthResponse, SearchRequest, SearchResponse, ShareResponse, UserOut
 from ..services.apps import create_app
@@ -156,3 +156,144 @@ def share_app(app_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Application not found")
     base = os.getenv("PUBLIC_APP_URL", "http://localhost:5173").rstrip("/")
     return {"url": f"{base}/run/{app.slug}"}
+
+
+def _record_context(app_slug: str, entity_name: str, db: Session, current_user: User):
+    app = db.query(App).filter(App.slug == app_slug).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    runtime = (app.specification or {}).get("runtime") or {}
+    entities = runtime.get("entities") or []
+    entity = next((item for item in entities if item.get("name") == entity_name), None)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Data entity not found")
+    return app, entity
+
+
+def _validate_record_data(entity: dict, data: dict, *, partial: bool = False):
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=422, detail="Record data must be an object")
+    fields = {item["key"]: item for item in entity.get("fields", []) if isinstance(item, dict) and "key" in item}
+    unknown = set(data) - set(fields)
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Unknown fields: {', '.join(sorted(unknown))}")
+    if not partial:
+        missing = [key for key, field in fields.items() if field.get("required") and key not in data]
+        if missing:
+            raise HTTPException(status_code=422, detail=f"Missing required fields: {', '.join(missing)}")
+    for key, value in data.items():
+        field = fields[key]
+        kind = field.get("type", "text")
+        valid = (
+            (kind == "text" and isinstance(value, str))
+            or (kind == "number" and isinstance(value, (int, float)) and not isinstance(value, bool))
+            or (kind == "boolean" and isinstance(value, bool))
+            or (kind == "date" and isinstance(value, str))
+            or (kind == "select" and isinstance(value, str) and value in (field.get("options") or []))
+        )
+        if not valid:
+            raise HTTPException(status_code=422, detail=f"Invalid value for field: {key}")
+
+
+def _record_out(record: AppRecord):
+    return {
+        "id": record.id,
+        "entity": record.entity,
+        "data": record.payload,
+        "created_at": record.created_at,
+        "updated_at": record.updated_at,
+    }
+
+
+@router.get("/apps/{app_slug}/data/{entity_name}")
+def list_app_records(
+    app_slug: str,
+    entity_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    app, _ = _record_context(app_slug, entity_name, db, current_user)
+    rows = (
+        db.query(AppRecord)
+        .filter(
+            AppRecord.app_id == app.id,
+            AppRecord.user_id == current_user.id,
+            AppRecord.entity == entity_name,
+        )
+        .order_by(AppRecord.created_at.desc())
+        .limit(500)
+        .all()
+    )
+    return [_record_out(row) for row in rows]
+
+
+@router.post("/apps/{app_slug}/data/{entity_name}", status_code=201)
+def create_app_record(
+    app_slug: str,
+    entity_name: str,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    app, entity = _record_context(app_slug, entity_name, db, current_user)
+    _validate_record_data(entity, data)
+    record = AppRecord(app_id=app.id, user_id=current_user.id, entity=entity_name, payload=data)
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return _record_out(record)
+
+
+@router.patch("/apps/{app_slug}/data/{entity_name}/{record_id}")
+def update_app_record(
+    app_slug: str,
+    entity_name: str,
+    record_id: int,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    app, entity = _record_context(app_slug, entity_name, db, current_user)
+    record = (
+        db.query(AppRecord)
+        .filter(
+            AppRecord.id == record_id,
+            AppRecord.app_id == app.id,
+            AppRecord.user_id == current_user.id,
+            AppRecord.entity == entity_name,
+        )
+        .first()
+    )
+    if record is None:
+        raise HTTPException(status_code=404, detail="Record not found")
+    _validate_record_data(entity, data, partial=True)
+    record.payload = {**(record.payload or {}), **data}
+    _validate_record_data(entity, record.payload)
+    db.commit()
+    db.refresh(record)
+    return _record_out(record)
+
+
+@router.delete("/apps/{app_slug}/data/{entity_name}/{record_id}", status_code=204)
+def delete_app_record(
+    app_slug: str,
+    entity_name: str,
+    record_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    app, _ = _record_context(app_slug, entity_name, db, current_user)
+    record = (
+        db.query(AppRecord)
+        .filter(
+            AppRecord.id == record_id,
+            AppRecord.app_id == app.id,
+            AppRecord.user_id == current_user.id,
+            AppRecord.entity == entity_name,
+        )
+        .first()
+    )
+    if record is None:
+        raise HTTPException(status_code=404, detail="Record not found")
+    db.delete(record)
+    db.commit()
