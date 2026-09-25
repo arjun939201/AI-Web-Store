@@ -155,6 +155,14 @@ class GroqProvider(AIProvider):
 
         try:
             parsed = json.loads(content)
+            # Normalize the common seed_records alias to the schema's seed key.
+            runtime = parsed.get("runtime") if isinstance(parsed, dict) else None
+            entities = runtime.get("entities") if isinstance(runtime, dict) else None
+            if isinstance(entities, list):
+                for entity in entities:
+                    if isinstance(entity, dict) and "seed_records" in entity:
+                        entity.setdefault("seed", entity["seed_records"])
+                        entity.pop("seed_records", None)
             return AppSpec.model_validate(parsed)
         except (json.JSONDecodeError, TypeError, ValueError) as exc:
             raise RuntimeError(
