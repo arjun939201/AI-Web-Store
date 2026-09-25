@@ -72,20 +72,23 @@ def register(payload: AuthRequest, db: Session = Depends(get_db)):
     user.credentials = UserCredential(password_salt=salt, password_hash=password_hash)
     try:
         db.add(user)
+        db.flush()
+        # Mint token before commit so missing auth configuration cannot leave
+        # a newly-created account behind when registration returns an error.
+        token = create_access_token(user.id)
         db.commit()
         db.refresh(user)
-    except SQLAlchemyError:
-        db.rollback()
-        logger.exception("Account registration failed")
-        raise HTTPException(status_code=409, detail="Unable to create this account.")
-    try:
-        token = create_access_token(user.id)
     except RuntimeError:
+        db.rollback()
         logger.exception("Authentication secret is unavailable during registration")
         raise HTTPException(
             status_code=503,
             detail="Authentication service is temporarily unavailable.",
         )
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Account registration failed")
+        raise HTTPException(status_code=409, detail="Unable to create this account.")
     return {"token": token, "user": UserOut.model_validate(user, from_attributes=True)}
 
 
